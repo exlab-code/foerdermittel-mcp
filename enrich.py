@@ -714,6 +714,7 @@ class Pipeline:
         force: bool = False,
         limit: int | None = None,
         dry_run: bool = False,
+        workers: int = 10,
     ):
         """Run the pipeline."""
         # 1. Download
@@ -729,19 +730,18 @@ class Pipeline:
             existing_enrichments = self._load_existing_enrichments()
             logger.info("Loaded %d existing enrichments", len(existing_enrichments))
 
-        # 3. Transform and enrich
+        # 3. Transform and split into cached vs. needs-enrichment
         programs = []
+        to_enrich = []  # (index, transformed_dict)
         enriched_count = 0
         cached_count = 0
         failed_count = 0
 
-        for idx, (_, row) in enumerate(df.iterrows()):
-            # Transform parquet row → our schema (handles arrays, HTML, column renames)
+        for _, row in df.iterrows():
             transformed = self.downloader.transform_row(row)
             prog_id = transformed.get("id", "")
             checksum = transformed.get("checksum", "")
 
-            # Check if we have a cached enrichment with matching checksum
             cached = existing_enrichments.get(prog_id)
             if cached and cached.get("checksum") == checksum and not force:
                 programs.append(cached["program"])
@@ -749,24 +749,39 @@ class Pipeline:
             elif dry_run:
                 programs.append(transformed)
             else:
-                # Enrich via Claude (pass transformed dict with clean text)
+                idx = len(programs)
+                programs.append(transformed)  # placeholder
+                to_enrich.append((idx, transformed))
+
+        logger.info(
+            "%d cached, %d to enrich, %d dry-run",
+            cached_count, len(to_enrich), len(programs) - cached_count - len(to_enrich),
+        )
+
+        # 4. Enrich in parallel
+        if to_enrich:
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+
+            def _enrich_one(item):
+                idx, transformed = item
                 enrichment = self.enricher.enrich(transformed)
-                if enrichment:
-                    prog = self._merge_program(transformed, enrichment)
-                    programs.append(prog)
-                    enriched_count += 1
-                else:
-                    programs.append(transformed)
-                    failed_count += 1
+                return idx, transformed, enrichment
 
-                if enriched_count % 10 == 0 and enriched_count > 0:
-                    logger.info(
-                        "Progress: %d/%d enriched, %d cached, %d failed",
-                        enriched_count, len(df), cached_count, failed_count,
-                    )
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                futures = [pool.submit(_enrich_one, item) for item in to_enrich]
+                for i, future in enumerate(as_completed(futures), 1):
+                    idx, transformed, enrichment = future.result()
+                    if enrichment:
+                        programs[idx] = self._merge_program(transformed, enrichment)
+                        enriched_count += 1
+                    else:
+                        failed_count += 1
 
-            if (idx + 1) % 100 == 0:
-                logger.info("Processed %d/%d programs", idx + 1, len(df))
+                    if i % 10 == 0 or i == len(futures):
+                        logger.info(
+                            "Progress: %d/%d enriched, %d failed",
+                            enriched_count, i, failed_count,
+                        )
 
         logger.info(
             "Done: %d enriched, %d cached, %d failed, %d total",
@@ -971,6 +986,10 @@ def main():
         "--model", type=str, default=None,
         help="Model name (default: provider-specific)",
     )
+    parser.add_argument(
+        "--workers", type=int, default=10,
+        help="Parallel API workers (default: 10)",
+    )
     args = parser.parse_args()
 
     if args.stats:
@@ -983,7 +1002,7 @@ def main():
     builder = DatabaseBuilder(args.db_path)
 
     pipeline = Pipeline(taxonomy, downloader, enricher, builder)
-    pipeline.run(force=args.force, limit=args.limit, dry_run=args.dry_run)
+    pipeline.run(force=args.force, limit=args.limit, dry_run=args.dry_run, workers=args.workers)
 
 
 if __name__ == "__main__":
