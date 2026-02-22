@@ -7,7 +7,8 @@ Usage:
     python enrich.py --limit 10         # enrich only 10 (for testing)
     python enrich.py --dry-run          # download + filter only, no API calls
     python enrich.py --stats            # print DB statistics
-    python enrich.py --dsee data.json   # include DSEE programs
+    python enrich.py --dsee              # include DSEE programs (from GitHub Pages)
+    python enrich.py --dsee data.json   # include DSEE programs (from local file)
 """
 
 import argparse
@@ -370,21 +371,30 @@ class ParquetDownloader:
 # ---------------------------------------------------------------------------
 
 
-class DSEELoader:
-    """Loads DSEE JSON and transforms entries to the common DB schema."""
+DSEE_DEFAULT_URL = (
+    "https://exlab-code.github.io/digikal/dsee_foerderprogramme.json"
+)
 
-    def __init__(self, path: str):
-        self.path = path
+
+class DSEELoader:
+    """Loads DSEE JSON (from file path or URL) and transforms entries to the common DB schema."""
+
+    def __init__(self, source: str):
+        self.source = source
 
     def load(self) -> list[dict]:
         """Read DSEE JSON and return list of transformed program dicts."""
-        with open(self.path, "r", encoding="utf-8") as f:
-            raw = json.load(f)
+        if self.source.startswith(("http://", "https://")):
+            logger.info("Downloading DSEE JSON from %s ...", self.source)
+            resp = requests.get(self.source, timeout=60)
+            resp.raise_for_status()
+            raw = resp.json()
+            logger.info("Downloaded %.1f KB", len(resp.content) / 1024)
+        else:
+            with open(self.source, "r", encoding="utf-8") as f:
+                raw = json.load(f)
 
-        programs = []
-        for entry in raw:
-            programs.append(self._transform(entry))
-
+        programs = [self._transform(entry) for entry in raw]
         logger.info("Loaded %d programs from DSEE JSON", len(programs))
         return programs
 
@@ -1092,8 +1102,8 @@ def main():
         help="Parallel API workers (default: 10)",
     )
     parser.add_argument(
-        "--dsee", type=str, default=None,
-        help="Path to DSEE JSON file (dsee_foerderprogramme.json)",
+        "--dsee", type=str, nargs="?", const=DSEE_DEFAULT_URL, default=None,
+        help="Include DSEE programs. Accepts a file path or URL (default: GitHub Pages URL)",
     )
     args = parser.parse_args()
 
