@@ -1,0 +1,295 @@
+openapi: 3.1.0
+info:
+  title: Fördermittel API
+  description: >
+    Durchsuche über 2.000 Förderprogramme für gemeinnützige Organisationen
+    in Deutschland. Daten aus foerderdatenbank.de und der DSEE Förderdatenbank.
+  version: "1.0"
+servers:
+  - url: https://mkks800sogss88sc8o8wg800.buerofalk.de
+
+paths:
+  /api/search:
+    get:
+      operationId: searchFoerderprogramme
+      summary: Förderprogramme suchen
+      description: >
+        Volltextsuche über Titel, Beschreibung, Zusammenfassung und
+        Förderorganisation. Unterstützt Filter nach Bundesland, Förderart
+        und Tags.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Suchbegriffe (deutsch)
+          schema:
+            type: string
+        - name: bundesland
+          in: query
+          required: false
+          description: Filter nach Bundesland
+          schema:
+            type: string
+            enum:
+              - Bayern
+              - Brandenburg
+              - Hessen
+              - Nordrhein-Westfalen
+              - Rheinland-Pfalz
+              - Saarland
+              - Sachsen
+              - Sachsen-Anhalt
+              - Schleswig-Holstein
+              - bundesweit
+        - name: funding_type
+          in: query
+          required: false
+          description: Filter nach Förderart
+          schema:
+            type: string
+            enum:
+              - Zuschuss
+              - Kredit
+              - Bürgschaft
+              - Sonstige
+        - name: tags
+          in: query
+          required: false
+          description: Kommagetrennte Tags zum Filtern (z.B. "Klimaschutz,Ehrenamt")
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Maximale Anzahl Ergebnisse (Standard 10, max 50)
+          schema:
+            type: integer
+            default: 10
+            maximum: 50
+      responses:
+        "200":
+          description: Suchergebnisse
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProgramSummary"
+
+  /api/program/{id}:
+    get:
+      operationId: getProgramDetails
+      summary: Details eines Förderprogramms abrufen
+      description: Gibt alle verfügbaren Informationen zu einem Förderprogramm zurück.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Programm-ID (aus Suchergebnissen)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Programmdetails
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProgramDetails"
+        "404":
+          description: Programm nicht gefunden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /api/deadlines:
+    get:
+      operationId: listUpcomingDeadlines
+      summary: Anstehende Fristen auflisten
+      description: >
+        Zeigt Förderprogramme mit Antragsfristen in den nächsten N Tagen,
+        plus laufende Programme ohne feste Frist.
+      parameters:
+        - name: days
+          in: query
+          required: false
+          description: Anzahl Tage vorausschauen (Standard 90, max 365)
+          schema:
+            type: integer
+            default: 90
+            maximum: 365
+      responses:
+        "200":
+          description: Programme mit anstehenden Fristen
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ProgramSummary"
+
+  /api/filters:
+    get:
+      operationId: getFilterOptions
+      summary: Verfügbare Filterwerte abrufen
+      description: >
+        Gibt alle verfügbaren Werte für Bundesland, Förderart, Kategorien,
+        Themen und Zielgruppen zurück. Nützlich um gültige Filterparameter
+        für die Suche zu ermitteln.
+      responses:
+        "200":
+          description: Filterwerte
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  bundeslaender:
+                    type: array
+                    items:
+                      type: string
+                  funding_types:
+                    type: array
+                    items:
+                      type: string
+                  super_kategorien:
+                    type: array
+                    items:
+                      type: string
+                  themen:
+                    type: array
+                    items:
+                      type: string
+                  zielgruppen:
+                    type: array
+                    items:
+                      type: string
+
+components:
+  schemas:
+    ProgramSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+          description: Bereinigter Titel (oder Originaltitel)
+        original_title:
+          type: string
+        short_summary:
+          type: string
+        institution_name:
+          type: string
+        funding_body:
+          type: string
+        bundesland:
+          type: string
+        funding_type_normalized:
+          type: string
+        funding_summary:
+          type: string
+        application_deadline:
+          type: string
+          nullable: true
+          description: ISO-Datum (YYYY-MM-DD) oder null
+        deadline_type:
+          type: string
+          enum: [einmalig, laufend, jährlich, geschlossen]
+        super_kategorien:
+          type: array
+          items:
+            type: string
+        themen:
+          type: array
+          items:
+            type: string
+        source_url:
+          type: string
+
+    ProgramDetails:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        clean_title:
+          type: string
+        description:
+          type: string
+        more_info:
+          type: string
+        legal_basis:
+          type: string
+        eligible_applicants:
+          type: string
+        funding_type_raw:
+          type: string
+        funding_area:
+          type: string
+        funding_location:
+          type: string
+        institution_name:
+          type: string
+        funding_body:
+          type: string
+        source_url:
+          type: string
+        contact_email:
+          type: string
+        contact_website:
+          type: string
+        further_links:
+          type: array
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+              url:
+                type: string
+        short_summary:
+          type: string
+        eligibility_summary:
+          type: string
+        funding_summary:
+          type: string
+        bundesland:
+          type: string
+        funding_type_normalized:
+          type: string
+        application_deadline:
+          type: string
+          nullable: true
+        deadline_type:
+          type: string
+        super_kategorien:
+          type: array
+          items:
+            type: string
+        themen:
+          type: array
+          items:
+            type: string
+        zielgruppen:
+          type: array
+          items:
+            type: string
+        foerderart:
+          type: array
+          items:
+            type: string
