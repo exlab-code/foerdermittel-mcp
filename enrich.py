@@ -808,12 +808,8 @@ class Pipeline:
         extra_programs: list[dict] | None = None,
     ):
         """Run the pipeline."""
-        # 1. Download
+        # 1. Download all programs from all sources
         df = self.downloader.download()
-
-        if limit:
-            df = df.head(limit)
-            logger.info("Limited to %d programs", len(df))
 
         # 2. Load existing enrichments (for incremental mode)
         existing_enrichments = {}
@@ -828,8 +824,12 @@ class Pipeline:
         cached_count = 0
         failed_count = 0
 
-        for _, row in df.iterrows():
-            transformed = self.downloader.transform_row(row)
+        all_transformed = [self.downloader.transform_row(row) for _, row in df.iterrows()]
+        if extra_programs:
+            all_transformed.extend(extra_programs)
+            logger.info("Added %d extra programs (e.g. DSEE)", len(extra_programs))
+
+        for transformed in all_transformed:
             prog_id = transformed.get("id", "")
             checksum = transformed.get("checksum", "")
 
@@ -844,29 +844,15 @@ class Pipeline:
                 programs.append(transformed)  # placeholder
                 to_enrich.append((idx, transformed))
 
-        # Merge extra programs (e.g. DSEE) with same caching logic
-        if extra_programs:
-            extra_limited = extra_programs[:limit] if limit else extra_programs
-            for transformed in extra_limited:
-                prog_id = transformed.get("id", "")
-                checksum = transformed.get("checksum", "")
-
-                cached = existing_enrichments.get(prog_id)
-                if cached and cached.get("checksum") == checksum and not force:
-                    programs.append(cached["program"])
-                    cached_count += 1
-                elif dry_run:
-                    programs.append(transformed)
-                else:
-                    idx = len(programs)
-                    programs.append(transformed)
-                    to_enrich.append((idx, transformed))
-
-            logger.info("Added %d extra programs (e.g. DSEE)", len(extra_limited))
+        # --limit caps the number of new API calls, not the total programs
+        if limit and len(to_enrich) > limit:
+            logger.info("Limiting enrichment to %d of %d programs", limit, len(to_enrich))
+            to_enrich = to_enrich[:limit]
 
         logger.info(
-            "%d cached, %d to enrich, %d dry-run",
+            "%d cached, %d to enrich, %d dry-run, %d total",
             cached_count, len(to_enrich), len(programs) - cached_count - len(to_enrich),
+            len(programs),
         )
 
         # 4. Enrich in parallel
