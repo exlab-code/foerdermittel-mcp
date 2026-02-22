@@ -1,0 +1,9 @@
+.env
+foerdermittel.db
+foerdermittel.db.tmp
+foerdermittel.json
+*.db-shm
+*.db-wal
+__pycache__/
+*.pyc
+.DS_Store

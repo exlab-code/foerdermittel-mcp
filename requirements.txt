@@ -1,0 +1,7 @@
+anthropic>=0.40.0
+pandas>=2.0.0
+pyarrow>=14.0.0
+pyyaml>=6.0
+requests>=2.25.0
+mcp[cli]>=1.0.0
+python-dotenv>=0.15.0

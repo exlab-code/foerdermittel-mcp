@@ -1,0 +1,432 @@
+# Controlled vocabulary for Fördermittel enrichment pipeline.
+# Every value the LLM can assign MUST appear here as an enum.
+# The tool_use schema is generated from this file at runtime.
+
+super_kategorien:
+  - id: soziales
+    label: Soziales
+  - id: umwelt
+    label: Umwelt
+  - id: kultur
+    label: Kultur
+  - id: bildung
+    label: Bildung
+  - id: sport
+    label: Sport
+  - id: integration
+    label: Integration
+  - id: forschung
+    label: Forschung
+  - id: digitalisierung
+    label: Digitalisierung
+  - id: gesundheit
+    label: Gesundheit
+  - id: demokratie
+    label: Demokratie
+  - id: jugend
+    label: Jugend
+  - id: wirtschaft
+    label: Wirtschaft
+  - id: tierschutz
+    label: Tierschutz
+  - id: entwicklungszusammenarbeit
+    label: Entwicklungszusammenarbeit
+
+themen:
+  # Soziales
+  - id: soziale_teilhabe
+    label: Soziale Teilhabe
+    parent: soziales
+    keywords: [Soziale Gerechtigkeit, Soziale Inklusion, Chancengerechtigkeit, Gemeinwohl, Teilhabe]
+  - id: ehrenamt
+    label: Ehrenamt
+    parent: soziales
+    keywords: [Freiwilligenarbeit, Bürgerschaftliches Engagement, Engagement]
+  - id: pflege
+    label: Pflege
+    parent: soziales
+    keywords: [Altenpflege, Pflegeeinrichtungen, Betreuung]
+  - id: familien
+    label: Familien
+    parent: soziales
+    keywords: [Familienberatung, Familienerholung, Familienfreizeiten, Frühe Hilfen]
+  - id: senioren
+    label: Senioren
+    parent: soziales
+    keywords: [Seniorenberatung, Altenhilfe, Wohngemeinschaften]
+  - id: freiwilligendienste
+    label: Freiwilligendienste
+    parent: soziales
+    keywords: [FSJ, BFD, FÖJ, Bundesfreiwilligendienst]
+  - id: inklusion
+    label: Inklusion
+    parent: soziales
+    keywords: [Barrierefreiheit, Behinderung, Teilhabe]
+  - id: suchtpraevention
+    label: Suchtprävention
+    parent: soziales
+    keywords: [Suchtberatung, Prävention, Drogen]
+  - id: wohnen
+    label: Wohnen
+    parent: soziales
+    keywords: [Wohnungsbau, Sozialwohnungen, Wohngemeinschaften]
+
+  # Umwelt
+  - id: klimaschutz
+    label: Klimaschutz
+    parent: umwelt
+    keywords: [Klimaanpassung, CO2, Emissionen, Treibhausgas]
+  - id: naturschutz
+    label: Naturschutz
+    parent: umwelt
+    keywords: [Artenschutz, Biodiversität, Wildnisentwicklung, Biotope]
+  - id: nachhaltigkeit
+    label: Nachhaltigkeit
+    parent: umwelt
+    keywords: [Nachhaltige Entwicklung, Ressourcenschonung, Kreislaufwirtschaft]
+  - id: energiewende
+    label: Energiewende
+    parent: umwelt
+    keywords: [Erneuerbare Energien, Energieberatung, Energieeffizienz]
+  - id: wasserwirtschaft
+    label: Wasserwirtschaft
+    parent: umwelt
+    keywords: [Gewässerschutz, Hochwasserschutz, Trinkwasser]
+  - id: waldwirtschaft
+    label: Waldwirtschaft
+    parent: umwelt
+    keywords: [Forstwirtschaft, Aufforstung, Waldschutz]
+
+  # Kultur
+  - id: kulturfoerderung
+    label: Kulturförderung
+    parent: kultur
+    keywords: [Kultur, Kulturpflege, Kulturerhalt, Kulturelle Projekte]
+  - id: denkmalschutz
+    label: Denkmalschutz
+    parent: kultur
+    keywords: [Denkmalpflege, Kulturdenkmale, Heimatpflege, Brauchtumspflege]
+  - id: kuenstlerische_projekte
+    label: Künstlerische Projekte
+    parent: kultur
+    keywords: [Kunst, Kunstförderung, Künstler]
+  - id: kulturelle_bildung
+    label: Kulturelle Bildung
+    parent: kultur
+    keywords: [Kulturvermittlung, Museumspädagogik]
+  - id: kulturelle_vielfalt
+    label: Kulturelle Vielfalt
+    parent: kultur
+    keywords: [Interkultur, Diversität, Multikulti]
+  - id: heimatgeschichte
+    label: Heimatgeschichte
+    parent: kultur
+    keywords: [Regionalgeschichte, Ortsgeschichte, Brauchtum]
+
+  # Bildung
+  - id: allgemeine_bildung
+    label: Allgemeine Bildung
+    parent: bildung
+    keywords: [Bildung, Bildungsarbeit, Bildungsangebote, Bildungsförderung]
+  - id: berufsbildung
+    label: Berufsbildung
+    parent: bildung
+    keywords: [Ausbildung, Berufliche Bildung, Weiterbildung]
+  - id: politische_bildung
+    label: Politische Bildung
+    parent: bildung
+    keywords: [Demokratiebildung, Civic Education, Politische Teilhabe]
+  - id: bildungsprojekte
+    label: Bildungsprojekte
+    parent: bildung
+    keywords: [Bildungsjahr, Schulprojekte, Lernorte]
+  - id: internationale_mobilitaet
+    label: Internationale Mobilität
+    parent: bildung
+    keywords: [Austausch, Erasmus, Jugendaustausch]
+
+  # Sport
+  - id: breitensport
+    label: Breitensport
+    parent: sport
+    keywords: [Amateursport, Vereinssport, Sportvereine]
+  - id: sportstaettenbau
+    label: Sportstättenbau
+    parent: sport
+    keywords: [Sportstätten, Sportanlagen, Sportgeräte]
+
+  # Integration
+  - id: integrationsarbeit
+    label: Integrationsarbeit
+    parent: integration
+    keywords: [Integration, Erstorientierung, Integrationsprojekte]
+  - id: fluechtlingshilfe
+    label: Flüchtlingshilfe
+    parent: integration
+    keywords: [Flucht, Asyl, Geflüchtete]
+  - id: migrationshilfe
+    label: Migrationshilfe
+    parent: integration
+    keywords: [Migration, Zuwanderung, Migrantenorganisationen]
+
+  # Forschung
+  - id: forschungsfoerderung
+    label: Forschungsförderung
+    parent: forschung
+    keywords: [Wissenschaft, Forschungsprojekte, Innovation]
+  - id: innovation
+    label: Innovation
+    parent: forschung
+    keywords: [Technologietransfer, Innovationsförderung]
+
+  # Digitalisierung
+  - id: digitale_transformation
+    label: Digitale Transformation
+    parent: digitalisierung
+    keywords: [Digitalisierung, WLAN, IT-Infrastruktur]
+  - id: digitale_bildung
+    label: Digitale Bildung
+    parent: digitalisierung
+    keywords: [Medienkompetenz, E-Learning, Digitale Lernformate]
+
+  # Gesundheit
+  - id: gesundheitsfoerderung
+    label: Gesundheitsförderung
+    parent: gesundheit
+    keywords: [Prävention, Gesundheitsvorsorge, Public Health]
+
+  # Demokratie
+  - id: demokratiefoerderung
+    label: Demokratieförderung
+    parent: demokratie
+    keywords: [Demokratie leben, Extremismusprävention, Vielfalt]
+  - id: zivilgesellschaft
+    label: Zivilgesellschaft
+    parent: demokratie
+    keywords: [Bürgergesellschaft, Partizipation, Bürgerbeteiligung]
+
+  # Jugend
+  - id: jugendarbeit
+    label: Jugendarbeit
+    parent: jugend
+    keywords: [Jugendhilfe, Jugendbildung, Jugendfreizeiten]
+  - id: kinder_und_jugendschutz
+    label: Kinder- und Jugendschutz
+    parent: jugend
+    keywords: [Kinderschutz, Jugendschutz, Prävention]
+
+  # Wirtschaft
+  - id: regionalentwicklung
+    label: Regionalentwicklung
+    parent: wirtschaft
+    keywords: [Ländliche Entwicklung, Dorfentwicklung, Standortstärkung]
+  - id: infrastruktur
+    label: Infrastruktur
+    parent: wirtschaft
+    keywords: [Öffentliche Infrastruktur, Radverkehr, Breitband]
+  - id: tourismus
+    label: Tourismus
+    parent: wirtschaft
+    keywords: [Fremdenverkehr, Tourismusförderung]
+  - id: agrarstruktur
+    label: Agrarstruktur
+    parent: wirtschaft
+    keywords: [Landwirtschaft, Agrarpolitik, Ländlicher Raum]
+  - id: unternehmensnachfolge
+    label: Unternehmensnachfolge
+    parent: wirtschaft
+    keywords: [Betriebsübernahme, Nachfolge, Existenzgründung]
+  - id: absatzfoerderung
+    label: Absatzförderung
+    parent: wirtschaft
+    keywords: [Vermarktung, Export, Absatzmärkte]
+
+  # Tierschutz
+  - id: tierschutzarbeit
+    label: Tierschutzarbeit
+    parent: tierschutz
+    keywords: [Tierwohl, Tierhaltung, Tierschutzvereine]
+  - id: tierzucht
+    label: Tierzucht
+    parent: tierschutz
+    keywords: [Züchtung, Züchtervereinigungen]
+
+  # Entwicklungszusammenarbeit
+  - id: entwicklungshilfe
+    label: Entwicklungshilfe
+    parent: entwicklungszusammenarbeit
+    keywords: [Entwicklungspolitik, Globaler Süden]
+  - id: zusammenarbeit
+    label: Internationale Zusammenarbeit
+    parent: entwicklungszusammenarbeit
+    keywords: [Partnerschaft, Kooperation, Globale Gerechtigkeit]
+
+  # Sonstige
+  - id: beratung
+    label: Beratung
+    parent: soziales
+    keywords: [Beratungsangebote, Kompetenzzentren]
+  - id: regionale_projekte
+    label: Regionale Projekte
+    parent: wirtschaft
+    keywords: [Regionale Kooperation, Modellprojekte]
+
+zielgruppen:
+  - id: verbaende
+    label: Verbände
+    keywords: [Verband, Vereinigung, Dachverband, Fachverband]
+  - id: eingetragene_vereine
+    label: Eingetragene Vereine
+    keywords: [e.V., Verein, Vereinigung]
+  - id: gemeinnuetzige_organisationen
+    label: Gemeinnützige Organisationen
+    keywords: [NGO, gGmbH, gemeinnützige Einrichtungen, Gemeinnützigkeit]
+  - id: sportvereine
+    label: Sportvereine
+    keywords: [Sportverein, Sportverband, Sportbund]
+  - id: kultureinrichtungen
+    label: Kultureinrichtungen
+    keywords: [Museum, Theater, Bibliothek, Kulturverein]
+  - id: jugendorganisationen
+    label: Jugendorganisationen
+    keywords: [Jugendverband, Jugendring, Jugendgruppe]
+  - id: wohlfahrtsverbaende
+    label: Wohlfahrtsverbände
+    keywords: [AWO, Caritas, Diakonie, DRK, Paritätischer]
+  - id: stiftungen
+    label: Stiftungen
+    keywords: [Stiftung, Förderstiftung]
+  - id: religionsgemeinschaften
+    label: Religionsgemeinschaften
+    keywords: [Kirche, Kirchengemeinde, Religiöse Gemeinschaft]
+  - id: umweltorganisationen
+    label: Umweltorganisationen
+    keywords: [NABU, BUND, Umweltverband]
+  - id: migrantenorganisationen
+    label: Migrantenorganisationen
+    keywords: [MSO, Migrantenselbstorganisation, Integrationsverein]
+  - id: bildungstraeger
+    label: Bildungsträger
+    keywords: [Bildungswerk, Volkshochschule, Akademie]
+  - id: soziale_dienste
+    label: Soziale Dienste
+    keywords: [Sozialverband, Soziale Einrichtung, Beratungsstelle]
+  - id: freiwilligenorganisationen
+    label: Freiwilligenorganisationen
+    keywords: [Freiwilligenagentur, Ehrenamtsbörse]
+  - id: tierschutzvereine
+    label: Tierschutzvereine
+    keywords: [Tierschutz, Tierheim]
+  - id: kommunen
+    label: Kommunen
+    keywords: [Gemeinde, Stadt, Landkreis, Kreis, Zweckverband]
+  - id: hochschulen_und_forschung
+    label: Hochschulen und Forschung
+    keywords: [Universität, Fachhochschule, Forschungseinrichtung, Institut]
+  - id: unternehmen
+    label: Unternehmen
+    keywords: [KMU, Firma, Betrieb, Unternehmer]
+  - id: koerperschaften
+    label: Körperschaften
+    keywords: [Körperschaft des öffentlichen Rechts, KdöR]
+  - id: berufliche_schulen
+    label: Berufliche Schulen
+    keywords: [Berufsschule, Fachschule]
+  - id: ehrenamtsorganisationen
+    label: Ehrenamtsorganisationen
+    keywords: [Ehrenamt, Freiwilligenarbeit]
+  - id: integrationsagenturen
+    label: Integrationsagenturen
+    keywords: [Integrationsstelle, Beratungsdienst]
+  - id: jugendhilfe_traeger
+    label: Jugendhilfe-Träger
+    keywords: [Jugendhilfe, Jugendamt, Träger]
+  - id: beratungsstellen
+    label: Beratungsstellen
+    keywords: [Beratungsdienst, Fachberatung]
+  - id: betreuungsvereine
+    label: Betreuungsvereine
+    keywords: [Betreuungsverein, Rechtliche Betreuung]
+  - id: natuerliche_personen
+    label: Natürliche Personen
+    keywords: [Privatperson, Einzelperson, Bürger]
+  - id: oeffentliche_einrichtungen
+    label: Öffentliche Einrichtungen
+    keywords: [Behörde, Amt, Öffentlicher Träger]
+  - id: landwirtschaftliche_unternehmen
+    label: Landwirtschaftliche Unternehmen
+    keywords: [Agrarbetrieb, Landwirt, Bauer]
+  - id: forstbetriebsgemeinschaften
+    label: Forstbetriebsgemeinschaften
+    keywords: [Forstbetrieb, Waldbesitzer, Forstwirtschaft]
+  - id: eigentuemergemeinschaften
+    label: Eigentümergemeinschaften
+    keywords: [WEG, Hauseigentümer, Mieter]
+  - id: handwerkskammern
+    label: Handwerkskammern
+    keywords: [HWK, Handwerk, Innungen]
+  - id: industriekammern
+    label: Industriekammern
+    keywords: [IHK, Industrie- und Handelskammer]
+  - id: suchtberatungsstellen
+    label: Suchtberatungsstellen
+    keywords: [Suchtberatung, Drogenberatung]
+  - id: familienberatungsstellen
+    label: Familienberatungsstellen
+    keywords: [Familienberatung, Erziehungsberatung]
+  - id: zuechtervereinigungen
+    label: Züchtervereinigungen
+    keywords: [Tierzucht, Zuchtverband]
+  - id: juristische_personen
+    label: Juristische Personen
+    keywords: [GmbH, AG, Gesellschaft]
+
+foerderart:
+  - id: projektfoerderung
+    label: Projektförderung
+  - id: zuschuss
+    label: Zuschuss
+  - id: investitionsfoerderung
+    label: Investitionsförderung
+  - id: institutionelle_foerderung
+    label: Institutionelle Förderung
+  - id: kredit
+    label: Kredit
+  - id: buergschaft
+    label: Bürgschaft
+  - id: preis_und_wettbewerb
+    label: Preis und Wettbewerb
+  - id: mikroprojekte
+    label: Mikroprojekte
+
+bundeslaender:
+  - Baden-Württemberg
+  - Bayern
+  - Berlin
+  - Brandenburg
+  - Bremen
+  - Hamburg
+  - Hessen
+  - Mecklenburg-Vorpommern
+  - Niedersachsen
+  - Nordrhein-Westfalen
+  - Rheinland-Pfalz
+  - Saarland
+  - Sachsen
+  - Sachsen-Anhalt
+  - Schleswig-Holstein
+  - Thüringen
+  - bundesweit
+
+funding_types:
+  - Zuschuss
+  - Kredit
+  - Bürgschaft
+  - Preis
+  - Sonstige
+
+deadline_types:
+  - einmalig
+  - laufend
+  - jährlich
+  - geschlossen
