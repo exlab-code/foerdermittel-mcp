@@ -4,6 +4,8 @@
 Serves via stdio (local) or SSE (remote). Reads from a local SQLite database
 with FTS5 full-text search. Run enrich.py first to build the database.
 
+In SSE mode, also exposes a REST API at /api/* for non-MCP clients.
+
 Usage:
     python mcp_server.py                         # stdio (for local Claude Code)
     python mcp_server.py --transport sse          # SSE on port 8080
@@ -368,6 +370,8 @@ def main():
     if args.transport == "sse":
         import uvicorn
         from starlette.applications import Starlette
+        from starlette.middleware import Middleware
+        from starlette.middleware.cors import CORSMiddleware
         from starlette.responses import FileResponse, JSONResponse
         from starlette.routing import Route, Mount
 
@@ -376,10 +380,67 @@ def main():
                 return FileResponse(DB_PATH, filename="foerdermittel.db")
             return JSONResponse({"error": "Database not found"}, status_code=404)
 
-        app = Starlette(routes=[
-            Route("/foerdermittel.db", download_db),
-            Mount("/", app=mcp.sse_app()),
-        ])
+        # --- REST API endpoints ---
+
+        async def api_search(request):
+            query = request.query_params.get("q", "").strip()
+            if not query:
+                return JSONResponse(
+                    {"error": "Missing required query parameter 'q'"},
+                    status_code=400,
+                )
+            bundesland = request.query_params.get("bundesland")
+            funding_type = request.query_params.get("funding_type")
+            tags = request.query_params.get("tags")
+            try:
+                max_results = int(request.query_params.get("limit", 10))
+            except ValueError:
+                max_results = 10
+            results = search_foerderprogramme(
+                query=query,
+                bundesland=bundesland,
+                funding_type=funding_type,
+                tags=tags,
+                max_results=max_results,
+            )
+            return JSONResponse({"results": results, "count": len(results)})
+
+        async def api_program(request):
+            program_id = request.path_params["id"]
+            result = get_foerderprogramm_details(id=program_id)
+            if "error" in result:
+                return JSONResponse(result, status_code=404)
+            return JSONResponse(result)
+
+        async def api_deadlines(request):
+            try:
+                days = int(request.query_params.get("days", 90))
+            except ValueError:
+                days = 90
+            results = list_upcoming_deadlines(days=days)
+            return JSONResponse({"results": results, "count": len(results)})
+
+        async def api_filters(request):
+            return JSONResponse(get_filter_options())
+
+        app = Starlette(
+            routes=[
+                Route("/foerdermittel.db", download_db),
+                Route("/api/search", api_search),
+                Route("/api/program/{id:path}", api_program),
+                Route("/api/deadlines", api_deadlines),
+                Route("/api/filters", api_filters),
+                Mount("/", app=mcp.sse_app()),
+            ],
+            middleware=[
+                Middleware(
+                    CORSMiddleware,
+                    allow_origins=["*"],
+                    allow_methods=["GET"],
+                    allow_headers=["*"],
+                ),
+            ],
+        )
 
         uvicorn.run(app, host="0.0.0.0", port=args.port)
     else:

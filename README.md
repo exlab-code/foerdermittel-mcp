@@ -13,7 +13,7 @@ enrich.py              ← downloads parquet, enriches via LLM (OpenAI/Anthropic
        ↓
 foerdermittel.db       ← SQLite + FTS5 full-text search
        ↓
-mcp_server.py          ← MCP server (stdio for local, SSE for remote)
+mcp_server.py          ← MCP server (stdio/SSE) + REST API
 ```
 
 `taxonomy.yaml` defines the controlled vocabulary (super-categories, topics, target groups, funding types, states) used as enum constraints during LLM enrichment.
@@ -87,7 +87,46 @@ Add to your Claude Code `.mcp.json` or Claude Desktop `claude_desktop_config.jso
 
 For a remote SSE server, use the URL-based config instead.
 
-### Tools
+## REST API
+
+In SSE mode, the server also exposes a REST API for non-MCP clients (ChatGPT Custom GPTs, web apps, scripts, etc.). All endpoints return JSON and support CORS.
+
+### Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/search?q=Bildung` | Search programs by keyword |
+| `GET /api/program/{id}` | Full details for a program |
+| `GET /api/deadlines?days=90` | Programs with upcoming deadlines |
+| `GET /api/filters` | Available filter values |
+
+### Search parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `q` | Search query (required) |
+| `bundesland` | Filter by state, e.g. `Bayern`, `bundesweit` |
+| `funding_type` | Filter by type: `Zuschuss`, `Kredit`, `Bürgschaft`, `Preis`, `Sonstige` |
+| `tags` | Comma-separated tags |
+| `limit` | Max results (default 10, max 50) |
+
+### Examples
+
+```bash
+# Search for education funding in Berlin
+curl "https://your-server/api/search?q=Bildung&bundesland=Berlin"
+
+# Get program details
+curl "https://your-server/api/program/abc123"
+
+# Upcoming deadlines (next 60 days)
+curl "https://your-server/api/deadlines?days=60"
+
+# Available filters
+curl "https://your-server/api/filters"
+```
+
+### MCP Tools
 
 | Tool | Description |
 |------|-------------|
@@ -122,7 +161,7 @@ Deploy with any container platform (Coolify, Docker, etc.). The server runs in S
 python mcp_server.py --transport sse --port 8080
 ```
 
-In SSE mode, the server also serves the DB file at `/foerdermittel.db` for downstream consumers.
+In SSE mode, the server serves both the REST API (`/api/*`) and the raw DB file at `/foerdermittel.db` for downstream consumers.
 
 ### Keeping data up to date
 
