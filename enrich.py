@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pipeline: download CorrelAid parquet → enrich via Claude Haiku → build SQLite.
+"""Pipeline: download CorrelAid parquet → enrich via LLM → build SQLite.
 
 Usage:
     python enrich.py                    # incremental run
@@ -7,6 +7,7 @@ Usage:
     python enrich.py --limit 10         # enrich only 10 (for testing)
     python enrich.py --dry-run          # download + filter only, no API calls
     python enrich.py --stats            # print DB statistics
+    python enrich.py --dsee data.json   # include DSEE programs
 """
 
 import argparse
@@ -362,6 +363,75 @@ class ParquetDownloader:
             "funding_type", "funding_location", "contact_info_institution",
         ])
         return hashlib.md5(text.encode("utf-8")).hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# DSEELoader
+# ---------------------------------------------------------------------------
+
+
+class DSEELoader:
+    """Loads DSEE JSON and transforms entries to the common DB schema."""
+
+    def __init__(self, path: str):
+        self.path = path
+
+    def load(self) -> list[dict]:
+        """Read DSEE JSON and return list of transformed program dicts."""
+        with open(self.path, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+
+        programs = []
+        for entry in raw:
+            programs.append(self._transform(entry))
+
+        logger.info("Loaded %d programs from DSEE JSON", len(programs))
+        return programs
+
+    @staticmethod
+    def _transform(entry: dict) -> dict:
+        """Transform a DSEE JSON entry to the common DB schema."""
+        source_url = entry.get("source_url", "")
+        prog_id = hashlib.md5(source_url.encode("utf-8")).hexdigest()
+
+        # Build more_info from subtitle + application_hints
+        more_info_parts = []
+        if entry.get("subtitle"):
+            more_info_parts.append(entry["subtitle"])
+        if entry.get("application_hints"):
+            more_info_parts.append(entry["application_hints"])
+        more_info = "\n\n".join(more_info_parts) if more_info_parts else None
+
+        # Join array fields
+        regions = entry.get("regions") or []
+        engagement_areas = entry.get("engagement_areas") or []
+        additional_links = entry.get("additional_links") or []
+
+        # Checksum for change detection
+        checksum_text = "|".join(str(entry.get(c, "")) for c in [
+            "title", "description", "target_group",
+        ])
+        checksum = hashlib.md5(checksum_text.encode("utf-8")).hexdigest()
+
+        return {
+            "id": prog_id,
+            "title": entry.get("title"),
+            "description": entry.get("description"),
+            "more_info": more_info,
+            "legal_basis": None,
+            "eligible_applicants": entry.get("target_group"),
+            "funding_type_raw": None,
+            "funding_area": ", ".join(engagement_areas) if engagement_areas else None,
+            "funding_location": ", ".join(regions) if regions else None,
+            "institution_name": entry.get("funding_organization"),
+            "funding_body": entry.get("funding_amount_text"),
+            "source_url": source_url,
+            "contact_email": entry.get("contact_email"),
+            "contact_website": entry.get("website"),
+            "further_links": json.dumps(additional_links, ensure_ascii=False) if additional_links else None,
+            "checksum": checksum,
+            "last_updated": None,
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -725,6 +795,7 @@ class Pipeline:
         limit: int | None = None,
         dry_run: bool = False,
         workers: int = 5,
+        extra_programs: list[dict] | None = None,
     ):
         """Run the pipeline."""
         # 1. Download
@@ -762,6 +833,26 @@ class Pipeline:
                 idx = len(programs)
                 programs.append(transformed)  # placeholder
                 to_enrich.append((idx, transformed))
+
+        # Merge extra programs (e.g. DSEE) with same caching logic
+        if extra_programs:
+            extra_limited = extra_programs[:limit] if limit else extra_programs
+            for transformed in extra_limited:
+                prog_id = transformed.get("id", "")
+                checksum = transformed.get("checksum", "")
+
+                cached = existing_enrichments.get(prog_id)
+                if cached and cached.get("checksum") == checksum and not force:
+                    programs.append(cached["program"])
+                    cached_count += 1
+                elif dry_run:
+                    programs.append(transformed)
+                else:
+                    idx = len(programs)
+                    programs.append(transformed)
+                    to_enrich.append((idx, transformed))
+
+            logger.info("Added %d extra programs (e.g. DSEE)", len(extra_limited))
 
         logger.info(
             "%d cached, %d to enrich, %d dry-run",
@@ -1000,11 +1091,21 @@ def main():
         "--workers", type=int, default=5,
         help="Parallel API workers (default: 10)",
     )
+    parser.add_argument(
+        "--dsee", type=str, default=None,
+        help="Path to DSEE JSON file (dsee_foerderprogramme.json)",
+    )
     args = parser.parse_args()
 
     if args.stats:
         print_stats(args.db_path)
         return
+
+    # Load DSEE data if provided
+    extra_programs = None
+    if args.dsee:
+        dsee_loader = DSEELoader(args.dsee)
+        extra_programs = dsee_loader.load()
 
     taxonomy = TaxonomyLoader()
     downloader = ParquetDownloader()
@@ -1012,7 +1113,13 @@ def main():
     builder = DatabaseBuilder(args.db_path)
 
     pipeline = Pipeline(taxonomy, downloader, enricher, builder)
-    pipeline.run(force=args.force, limit=args.limit, dry_run=args.dry_run, workers=args.workers)
+    pipeline.run(
+        force=args.force,
+        limit=args.limit,
+        dry_run=args.dry_run,
+        workers=args.workers,
+        extra_programs=extra_programs,
+    )
 
 
 if __name__ == "__main__":
