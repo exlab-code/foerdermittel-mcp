@@ -421,7 +421,7 @@ class DSEELoader:
 
         # Checksum for change detection
         checksum_text = "|".join(str(entry.get(c, "")) for c in [
-            "title", "description", "target_group",
+            "title", "description", "target_group", "application_deadline_text",
         ])
         checksum = hashlib.md5(checksum_text.encode("utf-8")).hexdigest()
 
