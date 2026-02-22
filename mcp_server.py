@@ -19,7 +19,7 @@ from datetime import date, timedelta
 
 from mcp.server.fastmcp import FastMCP
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "foerdermittel.db")
+DB_PATH = os.environ.get("DB_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), "foerdermittel.db"))
 
 mcp = FastMCP(
     "Fördermittel",

@@ -45,7 +45,7 @@ PARQUET_URL = (
     "/data/parquet_data.zip"
 )
 TAXONOMY_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "taxonomy.yaml")
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "foerdermittel.db")
+DB_PATH = os.environ.get("DB_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), "foerdermittel.db"))
 
 # Mapping: parquet column name → our DB column name
 # Array-typed parquet columns are joined with ", " before storage.
