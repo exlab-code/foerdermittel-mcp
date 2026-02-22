@@ -423,8 +423,15 @@ def main():
         async def api_filters(request):
             return JSONResponse(get_filter_options())
 
+        async def openapi_schema(request):
+            schema_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "openapi.yaml")
+            if os.path.exists(schema_path):
+                return FileResponse(schema_path, media_type="text/yaml")
+            return JSONResponse({"error": "Schema not found"}, status_code=404)
+
         app = Starlette(
             routes=[
+                Route("/openapi.yaml", openapi_schema),
                 Route("/foerdermittel.db", download_db),
                 Route("/api/search", api_search),
                 Route("/api/program/{id:path}", api_program),
