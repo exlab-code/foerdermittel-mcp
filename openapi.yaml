@@ -6,7 +6,7 @@ info:
     in Deutschland. Daten aus foerderdatenbank.de und der DSEE Förderdatenbank.
   version: "1.0"
 servers:
-  - url: https://mkks800sogss88sc8o8wg800.buerofalk.de
+  - url: https://foerdermittel-mcp.buerofalk.de
 
 paths:
   /api/search:
