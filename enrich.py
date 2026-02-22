@@ -421,14 +421,24 @@ Zusammenfassungen:
         """Enrich a single program. Returns the structured dict or None on failure."""
         prompt = self._build_prompt(row)
 
-        try:
-            if self.provider == "anthropic":
-                return self._call_anthropic(prompt, row)
-            else:
-                return self._call_openai(prompt, row)
-        except Exception as e:
-            logger.error("Enrichment failed for %s: %s", row.get("id", "?"), e)
-            return None
+        for attempt in range(5):
+            try:
+                if self.provider == "anthropic":
+                    return self._call_anthropic(prompt, row)
+                else:
+                    return self._call_openai(prompt, row)
+            except Exception as e:
+                err_str = str(e)
+                if "429" in err_str or "rate_limit" in err_str:
+                    wait = 2 ** attempt
+                    logger.warning("Rate limited for %s, retrying in %ds...", row.get("id", "?"), wait)
+                    time.sleep(wait)
+                    continue
+                logger.error("Enrichment failed for %s: %s", row.get("id", "?"), e)
+                return None
+
+        logger.error("Enrichment failed for %s after 5 retries (rate limited)", row.get("id", "?"))
+        return None
 
     def _call_anthropic(self, prompt: str, row: dict) -> dict | None:
         response = self.client.messages.create(
@@ -714,7 +724,7 @@ class Pipeline:
         force: bool = False,
         limit: int | None = None,
         dry_run: bool = False,
-        workers: int = 10,
+        workers: int = 5,
     ):
         """Run the pipeline."""
         # 1. Download
@@ -987,7 +997,7 @@ def main():
         help="Model name (default: provider-specific)",
     )
     parser.add_argument(
-        "--workers", type=int, default=10,
+        "--workers", type=int, default=5,
         help="Parallel API workers (default: 10)",
     )
     args = parser.parse_args()
