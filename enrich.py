@@ -771,6 +771,35 @@ class DatabaseBuilder:
 
         return inserted
 
+    def update_program(self, program: dict):
+        """Update a single program row in the live DB (for incremental enrichment)."""
+        prog_id = program.get("id")
+        if not prog_id:
+            return
+
+        row = {}
+        for key, val in program.items():
+            if isinstance(val, (list, dict)):
+                row[key] = json.dumps(val, ensure_ascii=False)
+            elif isinstance(val, bool):
+                row[key] = int(val)
+            elif pd.isna(val) if isinstance(val, float) else False:
+                row[key] = None
+            else:
+                row[key] = val
+
+        # Build SET clause excluding 'id'
+        cols = [c for c in row if c != "id"]
+        set_clause = ", ".join(f"{c} = ?" for c in cols)
+        values = [row[c] for c in cols] + [prog_id]
+
+        conn = sqlite3.connect(self.db_path)
+        try:
+            conn.execute(f"UPDATE foerdermittel SET {set_clause} WHERE id = ?", values)
+            conn.commit()
+        finally:
+            conn.close()
+
     @staticmethod
     def _verify(conn: sqlite3.Connection, expected: int):
         actual = conn.execute("SELECT COUNT(*) FROM foerdermittel").fetchone()[0]
@@ -817,13 +846,13 @@ class Pipeline:
         existing_enrichments = {}
         if not force and os.path.exists(self.builder.db_path):
             existing_enrichments = self._load_existing_enrichments()
-            logger.info("Loaded %d existing enrichments", len(existing_enrichments))
+            logger.info("Loaded %d existing enrichments from DB", len(existing_enrichments))
 
         # 3. Transform and split into cached vs. needs-enrichment
         programs = []
-        to_enrich = []  # (index, transformed_dict)
-        enriched_count = 0
+        to_enrich = []
         cached_count = 0
+        enriched_count = 0
         failed_count = 0
 
         all_transformed = [self.downloader.transform_row(row) for _, row in df.iterrows()]
@@ -842,9 +871,8 @@ class Pipeline:
             elif dry_run:
                 programs.append(transformed)
             else:
-                idx = len(programs)
-                programs.append(transformed)  # placeholder
-                to_enrich.append((idx, transformed))
+                programs.append(transformed)  # placeholder (unenriched)
+                to_enrich.append(transformed)
 
         # --limit caps the number of new API calls, not the total programs
         if limit and len(to_enrich) > limit:
@@ -852,26 +880,29 @@ class Pipeline:
             to_enrich = to_enrich[:limit]
 
         logger.info(
-            "%d cached, %d to enrich, %d dry-run, %d total",
-            cached_count, len(to_enrich), len(programs) - cached_count - len(to_enrich),
-            len(programs),
+            "%d cached, %d to enrich, %d total",
+            cached_count, len(to_enrich), len(programs),
         )
 
-        # 4. Enrich in parallel
+        # 4. Build database with all programs (cached are enriched, rest are placeholders)
+        self.builder.build(programs)
+        logger.info("Initial DB written — enriching remaining programs in-place")
+
+        # 5. Enrich in parallel, writing each result directly to DB
         if to_enrich:
             from concurrent.futures import ThreadPoolExecutor, as_completed
 
-            def _enrich_one(item):
-                idx, transformed = item
+            def _enrich_one(transformed):
                 enrichment = self.enricher.enrich(transformed)
-                return idx, transformed, enrichment
+                return transformed, enrichment
 
             with ThreadPoolExecutor(max_workers=workers) as pool:
-                futures = [pool.submit(_enrich_one, item) for item in to_enrich]
+                futures = [pool.submit(_enrich_one, t) for t in to_enrich]
                 for i, future in enumerate(as_completed(futures), 1):
-                    idx, transformed, enrichment = future.result()
+                    transformed, enrichment = future.result()
                     if enrichment:
-                        programs[idx] = self._merge_program(transformed, enrichment)
+                        merged = self._merge_program(transformed, enrichment)
+                        self.builder.update_program(merged)
                         enriched_count += 1
                     else:
                         failed_count += 1
@@ -886,9 +917,6 @@ class Pipeline:
             "Done: %d enriched, %d cached, %d failed, %d total",
             enriched_count, cached_count, failed_count, len(programs),
         )
-
-        # 4. Build database
-        self.builder.build(programs)
 
     def _load_existing_enrichments(self) -> dict:
         """Load enrichments from existing database for incremental mode."""
