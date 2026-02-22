@@ -631,13 +631,16 @@ class DatabaseBuilder:
     def __init__(self, db_path: str = DB_PATH):
         self.db_path = db_path
 
-    def build(self, programs: list[dict]) -> str:
-        """Build the database atomically. Returns the final path."""
-        tmp_path = self.db_path + ".tmp"
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
+    @property
+    def tmp_path(self) -> str:
+        return self.db_path + ".tmp"
 
-        conn = sqlite3.connect(tmp_path)
+    def build(self, programs: list[dict]) -> str:
+        """Build the staging DB (.tmp). Call finalize() to swap it live."""
+        if os.path.exists(self.tmp_path):
+            os.remove(self.tmp_path)
+
+        conn = sqlite3.connect(self.tmp_path)
         try:
             conn.execute("PRAGMA journal_mode=WAL")
             self._create_schema(conn)
@@ -647,10 +650,16 @@ class DatabaseBuilder:
         finally:
             conn.close()
 
-        # Atomic swap
-        os.replace(tmp_path, self.db_path)
-        logger.info("Database written to %s (%d programs)", self.db_path, inserted)
-        return self.db_path
+        logger.info("Staging DB written to %s (%d programs)", self.tmp_path, inserted)
+        return self.tmp_path
+
+    def finalize(self):
+        """Atomic swap: replace live DB with staging DB."""
+        if not os.path.exists(self.tmp_path):
+            logger.warning("No staging DB to finalize")
+            return
+        os.replace(self.tmp_path, self.db_path)
+        logger.info("Live DB updated: %s", self.db_path)
 
     @staticmethod
     def _create_schema(conn: sqlite3.Connection):
@@ -772,7 +781,7 @@ class DatabaseBuilder:
         return inserted
 
     def update_program(self, program: dict):
-        """Update a single program row in the live DB (for incremental enrichment)."""
+        """Update a single program row in the staging DB (.tmp)."""
         prog_id = program.get("id")
         if not prog_id:
             return
@@ -793,7 +802,7 @@ class DatabaseBuilder:
         set_clause = ", ".join(f"{c} = ?" for c in cols)
         values = [row[c] for c in cols] + [prog_id]
 
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.tmp_path)
         try:
             conn.execute(f"UPDATE foerdermittel SET {set_clause} WHERE id = ?", values)
             conn.commit()
@@ -842,11 +851,16 @@ class Pipeline:
         # 1. Download all programs from all sources
         df = self.downloader.download()
 
-        # 2. Load existing enrichments (for incremental mode)
+        # 2. Load existing enrichments (from live DB + interrupted .tmp)
         existing_enrichments = {}
-        if not force and os.path.exists(self.builder.db_path):
-            existing_enrichments = self._load_existing_enrichments()
-            logger.info("Loaded %d existing enrichments from DB", len(existing_enrichments))
+        if not force:
+            if os.path.exists(self.builder.db_path):
+                existing_enrichments = self._load_enrichments_from(self.builder.db_path)
+                logger.info("Loaded %d existing enrichments from live DB", len(existing_enrichments))
+            if os.path.exists(self.builder.tmp_path):
+                tmp_enrichments = self._load_enrichments_from(self.builder.tmp_path)
+                logger.info("Loaded %d enrichments from interrupted staging DB", len(tmp_enrichments))
+                existing_enrichments.update(tmp_enrichments)
 
         # 3. Transform and split into cached vs. needs-enrichment
         programs = []
@@ -884,11 +898,10 @@ class Pipeline:
             cached_count, len(to_enrich), len(programs),
         )
 
-        # 4. Build database with all programs (cached are enriched, rest are placeholders)
+        # 4. Build staging DB with all programs (cached are enriched, rest are placeholders)
         self.builder.build(programs)
-        logger.info("Initial DB written — enriching remaining programs in-place")
 
-        # 5. Enrich in parallel, writing each result directly to DB
+        # 5. Enrich in parallel, writing each result to staging DB
         if to_enrich:
             from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -918,11 +931,15 @@ class Pipeline:
             enriched_count, cached_count, failed_count, len(programs),
         )
 
-    def _load_existing_enrichments(self) -> dict:
-        """Load enrichments from existing database for incremental mode."""
+        # 6. Swap staging DB to live — MCP server picks up new data
+        self.builder.finalize()
+
+    @staticmethod
+    def _load_enrichments_from(db_path: str) -> dict:
+        """Load enrichments from a database file."""
         enrichments = {}
         try:
-            conn = sqlite3.connect(f"file:{self.builder.db_path}?mode=ro", uri=True)
+            conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
             conn.row_factory = sqlite3.Row
             rows = conn.execute(
                 "SELECT id, checksum, enrichment_json FROM foerdermittel"
