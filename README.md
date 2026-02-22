@@ -114,21 +114,30 @@ The taxonomy (`taxonomy.yaml`) defines the controlled vocabulary enforced via LL
 - **5 Funding Types** — Zuschuss, Kredit, Bürgschaft, Preis, Sonstige
 - **4 Deadline Types** — einmalig, laufend, jährlich, geschlossen
 
-## Automation
+## Deployment
 
-A GitHub Actions workflow (`.github/workflows/update-foerdermittel.yml`) runs every 2 days:
+Deploy with any container platform (Coolify, Docker, etc.). The server runs in SSE mode for remote access.
 
-1. Restores the cached DB
-2. Runs the enrichment pipeline (incremental — only new/changed programs)
-3. Publishes the updated DB as a GitHub Release
-4. Optionally notifies downstream consumers via `repository_dispatch`
+```bash
+python mcp_server.py --transport sse --port 8080
+```
 
-### Required secrets
+In SSE mode, the server also serves the DB file at `/foerdermittel.db` for downstream consumers.
 
-| Secret | Purpose |
-|--------|---------|
+### Keeping data up to date
+
+Set up a cron job on the server to re-run the enrichment pipeline (incremental — only processes new/changed programs):
+
+```bash
+# Every 2 days at 5:00 UTC
+0 5 */2 * * cd /path/to/foerdermittel-mcp && python enrich.py
+```
+
+### Environment variables
+
+| Variable | Purpose |
+|----------|---------|
 | `OPENAI_API_KEY` | LLM enrichment (gpt-4o-mini) |
-| `DIGIKAL_PAT` | *(optional)* Trigger downstream website update |
 
 ## Cost
 

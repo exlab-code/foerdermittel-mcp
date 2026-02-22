@@ -366,7 +366,22 @@ def main():
     args = parser.parse_args()
 
     if args.transport == "sse":
-        mcp.run(transport="sse", sse_params={"host": "0.0.0.0", "port": args.port})
+        import uvicorn
+        from starlette.applications import Starlette
+        from starlette.responses import FileResponse, JSONResponse
+        from starlette.routing import Route, Mount
+
+        async def download_db(request):
+            if os.path.exists(DB_PATH):
+                return FileResponse(DB_PATH, filename="foerdermittel.db")
+            return JSONResponse({"error": "Database not found"}, status_code=404)
+
+        app = Starlette(routes=[
+            Route("/foerdermittel.db", download_db),
+            Mount("/", app=mcp.sse_app()),
+        ])
+
+        uvicorn.run(app, host="0.0.0.0", port=args.port)
     else:
         mcp.run()
 
