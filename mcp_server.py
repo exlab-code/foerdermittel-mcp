@@ -26,9 +26,11 @@ DB_PATH = os.environ.get("DB_PATH", os.path.join(os.path.dirname(os.path.abspath
 mcp = FastMCP(
     "Fördermittel",
     instructions=(
-        "Dieser Server bietet Zugang zu über 1200 Förderprogrammen für gemeinnützige "
-        "Organisationen in Deutschland. Die Daten stammen von foerderdatenbank.de "
-        "(CorrelAid) und werden mit LLM-generierten Zusammenfassungen und Taxonomie "
+        "Dieser Server bietet Zugang zu über 2000 Förderprogrammen für gemeinnützige "
+        "Organisationen in Deutschland. Datenquellen: Förderdatenbank des Bundes "
+        "(foerderdatenbank.de, via CorrelAid) und Förderdatenbank der Deutschen "
+        "Stiftung für Engagement und Ehrenamt (foerderdatenbank.d-s-e-e.de). "
+        "Die Daten werden mit LLM-generierten Zusammenfassungen und Taxonomie "
         "angereichert.\n\n"
         "Workflow:\n"
         "1. get_filter_options() → verfügbare Filter sehen\n"

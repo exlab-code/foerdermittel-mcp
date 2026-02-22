@@ -3,7 +3,9 @@ info:
   title: Fördermittel API
   description: >
     Durchsuche über 2.000 Förderprogramme für gemeinnützige Organisationen
-    in Deutschland. Daten aus foerderdatenbank.de und der DSEE Förderdatenbank.
+    in Deutschland. Datenquellen: Förderdatenbank des Bundes
+    (foerderdatenbank.de, via CorrelAid) und Förderdatenbank der Deutschen
+    Stiftung für Engagement und Ehrenamt (foerderdatenbank.d-s-e-e.de).
   version: "1.0"
 servers:
   - url: https://foerdermittel-mcp.buerofalk.de
