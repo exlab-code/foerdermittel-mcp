@@ -404,12 +404,14 @@ class DSEELoader:
         source_url = entry.get("source_url", "")
         prog_id = hashlib.md5(source_url.encode("utf-8")).hexdigest()
 
-        # Build more_info from subtitle + application_hints
+        # Build more_info from subtitle + application_hints + deadline
         more_info_parts = []
         if entry.get("subtitle"):
             more_info_parts.append(entry["subtitle"])
         if entry.get("application_hints"):
             more_info_parts.append(entry["application_hints"])
+        if entry.get("application_deadline_text"):
+            more_info_parts.append(f"Antragsfrist: {entry['application_deadline_text']}")
         more_info = "\n\n".join(more_info_parts) if more_info_parts else None
 
         # Join array fields
