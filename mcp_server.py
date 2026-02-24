@@ -20,11 +20,15 @@ import sys
 from datetime import date, timedelta
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 DB_PATH = os.environ.get("DB_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), "foerdermittel.db"))
 
 mcp = FastMCP(
     "Fördermittel",
+    transport_security=TransportSecuritySettings(
+        allowed_hosts=["foerdermittel-mcp.buerofalk.de", "localhost", "127.0.0.1"],
+    ),
     instructions=(
         "Dieser Server bietet Zugang zu über 2000 Förderprogrammen für gemeinnützige "
         "Organisationen in Deutschland. Datenquellen: Förderdatenbank des Bundes "
