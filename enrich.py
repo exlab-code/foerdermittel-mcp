@@ -22,6 +22,7 @@ import re
 import sqlite3
 import sys
 import tempfile
+import threading
 import time
 import zipfile
 from dataclasses import dataclass
@@ -506,9 +507,11 @@ Zusammenfassungen:
         for attempt in range(5):
             try:
                 if self.provider == "anthropic":
-                    return self._call_anthropic(prompt, row)
+                    result = self._call_anthropic(prompt, row)
                 else:
-                    return self._call_openai(prompt, row)
+                    result = self._call_openai(prompt, row)
+                time.sleep(0.5)  # throttle API calls to avoid rate limits
+                return result
             except Exception as e:
                 err_str = str(e)
                 if "429" in err_str or "rate_limit" in err_str:
@@ -640,7 +643,7 @@ class DatabaseBuilder:
         if os.path.exists(self.tmp_path):
             os.remove(self.tmp_path)
 
-        conn = sqlite3.connect(self.tmp_path)
+        conn = sqlite3.connect(self.tmp_path, check_same_thread=False)
         try:
             conn.execute("PRAGMA journal_mode=WAL")
             self._create_schema(conn)
@@ -650,11 +653,19 @@ class DatabaseBuilder:
         finally:
             conn.close()
 
+        # Keep a shared connection open for update_program() calls
+        self._conn = sqlite3.connect(self.tmp_path, check_same_thread=False)
+        self._conn.execute("PRAGMA journal_mode=WAL")
+        self._lock = threading.Lock()
+
         logger.info("Staging DB written to %s (%d programs)", self.tmp_path, inserted)
         return self.tmp_path
 
     def finalize(self):
         """Atomic swap: replace live DB with staging DB."""
+        if hasattr(self, "_conn") and self._conn:
+            self._conn.close()
+            self._conn = None
         if not os.path.exists(self.tmp_path):
             logger.warning("No staging DB to finalize")
             return
@@ -802,12 +813,9 @@ class DatabaseBuilder:
         set_clause = ", ".join(f"{c} = ?" for c in cols)
         values = [row[c] for c in cols] + [prog_id]
 
-        conn = sqlite3.connect(self.tmp_path)
-        try:
-            conn.execute(f"UPDATE foerdermittel SET {set_clause} WHERE id = ?", values)
-            conn.commit()
-        finally:
-            conn.close()
+        with self._lock:
+            self._conn.execute(f"UPDATE foerdermittel SET {set_clause} WHERE id = ?", values)
+            self._conn.commit()
 
     @staticmethod
     def _verify(conn: sqlite3.Connection, expected: int):
@@ -844,7 +852,7 @@ class Pipeline:
         force: bool = False,
         limit: int | None = None,
         dry_run: bool = False,
-        workers: int = 5,
+        workers: int = 3,
         extra_programs: list[dict] | None = None,
     ):
         """Run the pipeline."""
@@ -1131,8 +1139,8 @@ def main():
         help="Model name (default: provider-specific)",
     )
     parser.add_argument(
-        "--workers", type=int, default=5,
-        help="Parallel API workers (default: 10)",
+        "--workers", type=int, default=3,
+        help="Parallel API workers (default: 3)",
     )
     parser.add_argument(
         "--dsee", type=str, nargs="?", const=DSEE_DEFAULT_URL, default=None,
