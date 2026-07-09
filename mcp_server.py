@@ -378,8 +378,80 @@ def main():
         from starlette.applications import Starlette
         from starlette.middleware import Middleware
         from starlette.middleware.cors import CORSMiddleware
-        from starlette.responses import FileResponse, JSONResponse
+        from starlette.responses import FileResponse, HTMLResponse, JSONResponse
         from starlette.routing import Route, Mount
+
+        async def landing_page(request):
+            total = None
+            try:
+                conn = _get_db()
+                try:
+                    total = conn.execute(
+                        "SELECT COUNT(*) FROM foerdermittel"
+                    ).fetchone()[0]
+                finally:
+                    conn.close()
+            except Exception:
+                pass
+            stats = f"{total:,}".replace(",", ".") if total is not None else "über 2.000"
+            html = f"""<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fördermittel MCP Server</title>
+<style>
+  body {{ font-family: -apple-system, "Segoe UI", Roboto, sans-serif; max-width: 44rem;
+         margin: 3rem auto; padding: 0 1.25rem; line-height: 1.6; color: #1a1a1a; }}
+  h1 {{ font-size: 1.6rem; }}
+  h2 {{ font-size: 1.15rem; margin-top: 2rem; }}
+  code {{ background: #f2f2f2; padding: 0.15em 0.4em; border-radius: 4px; font-size: 0.9em; }}
+  pre {{ background: #f2f2f2; padding: 0.75rem 1rem; border-radius: 6px; overflow-x: auto; }}
+  table {{ border-collapse: collapse; width: 100%; }}
+  td, th {{ text-align: left; padding: 0.35rem 0.75rem 0.35rem 0; vertical-align: top; }}
+  footer {{ margin-top: 3rem; font-size: 0.85rem; color: #666; }}
+  @media (prefers-color-scheme: dark) {{
+    body {{ background: #111; color: #ddd; }}
+    code, pre {{ background: #222; }}
+    footer {{ color: #999; }}
+  }}
+</style>
+</head>
+<body>
+<h1>Fördermittel MCP Server</h1>
+<p>Suchdienst für {stats} Förderprogramme für gemeinnützige Organisationen in
+Deutschland. Erreichbar als <a href="https://modelcontextprotocol.io">MCP-Server</a>
+(Model Context Protocol) und als REST-API.</p>
+
+<h2>MCP (für KI-Assistenten wie Claude)</h2>
+<p>Transport: SSE. Endpunkt:</p>
+<pre>{request.base_url}sse</pre>
+<p>Einbindung in Claude Code:</p>
+<pre>claude mcp add foerdermittel --transport sse {request.base_url}sse</pre>
+<p>Verfügbare Tools: <code>search_foerderprogramme</code>,
+<code>get_foerderprogramm_details</code>, <code>list_upcoming_deadlines</code>,
+<code>get_filter_options</code> sowie der Prompt <code>find_funding</code>.</p>
+
+<h2>REST-API (für alle anderen Clients)</h2>
+<table>
+  <tr><td><code>GET /api/search?q=…</code></td><td>Volltextsuche (Filter: <code>bundesland</code>, <code>funding_type</code>, <code>tags</code>, <code>limit</code>)</td></tr>
+  <tr><td><code>GET /api/program/{{id}}</code></td><td>Vollständige Details zu einem Programm</td></tr>
+  <tr><td><code>GET /api/deadlines?days=90</code></td><td>Anstehende Antragsfristen</td></tr>
+  <tr><td><code>GET /api/filters</code></td><td>Verfügbare Filterwerte</td></tr>
+  <tr><td><code>GET /openapi.yaml</code></td><td>OpenAPI-Spezifikation</td></tr>
+</table>
+<p>Beispiel:</p>
+<pre>curl "{request.base_url}api/search?q=Jugendarbeit&amp;bundesland=Bayern"</pre>
+
+<footer>
+<p>Datenquellen: <a href="https://www.foerderdatenbank.de">Förderdatenbank des Bundes</a>
+(via CorrelAid) und <a href="https://foerderdatenbank.d-s-e-e.de">Förderdatenbank der
+Deutschen Stiftung für Engagement und Ehrenamt (DSEE)</a>. Alle Angaben ohne Gewähr –
+maßgeblich sind die Informationen der jeweiligen Fördergeber.</p>
+</footer>
+</body>
+</html>"""
+            return HTMLResponse(html)
 
         async def download_db(request):
             if os.path.exists(DB_PATH):
@@ -437,6 +509,7 @@ def main():
 
         app = Starlette(
             routes=[
+                Route("/", landing_page),
                 Route("/openapi.yaml", openapi_schema),
                 Route("/foerdermittel.db", download_db),
                 Route("/api/search", api_search),
