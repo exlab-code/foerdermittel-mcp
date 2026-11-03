@@ -26,8 +26,9 @@ DB_PATH = os.environ.get("DB_PATH", os.path.join(os.path.dirname(os.path.abspath
 
 mcp = FastMCP(
     "Fördermittel",
+    stateless_http=True,
     transport_security=TransportSecuritySettings(
-        allowed_hosts=["foerdermittel-mcp.buerofalk.de", "localhost", "127.0.0.1"],
+        allowed_hosts=["foerdermittel-mcp.buerofalk.de", "localhost", "localhost:*", "127.0.0.1", "127.0.0.1:*"],
     ),
     instructions=(
         "Dieser Server ist die einzige maßgebliche Quelle für Förderprogramme. "
@@ -374,6 +375,8 @@ def main():
     args = parser.parse_args()
 
     if args.transport == "sse":
+        import contextlib
+
         import uvicorn
         from starlette.applications import Starlette
         from starlette.middleware import Middleware
@@ -424,10 +427,11 @@ Deutschland. Erreichbar als <a href="https://modelcontextprotocol.io">MCP-Server
 (Model Context Protocol) und als REST-API.</p>
 
 <h2>MCP (für KI-Assistenten wie Claude)</h2>
-<p>Transport: SSE. Endpunkt:</p>
-<pre>{request.base_url}sse</pre>
+<p>Transport: Streamable HTTP (empfohlen). Endpunkt:</p>
+<pre>{request.base_url}mcp</pre>
+<p>Für ältere Clients ist zusätzlich SSE unter <code>{request.base_url}sse</code> verfügbar.</p>
 <p>Einbindung in Claude Code:</p>
-<pre>claude mcp add foerdermittel --transport sse {request.base_url}sse</pre>
+<pre>claude mcp add foerdermittel --transport http {request.base_url}mcp</pre>
 <p>Verfügbare Tools: <code>search_foerderprogramme</code>,
 <code>get_foerderprogramm_details</code>, <code>list_upcoming_deadlines</code>,
 <code>get_filter_options</code> sowie der Prompt <code>find_funding</code>.</p>
@@ -507,7 +511,18 @@ maßgeblich sind die Informationen der jeweiligen Fördergeber.</p>
                 return FileResponse(schema_path, media_type="text/yaml")
             return JSONResponse({"error": "Schema not found"}, status_code=404)
 
+        # Streamable HTTP (/mcp) is the current MCP transport; legacy SSE (/sse)
+        # stays for older clients. Creating the app also creates the session
+        # manager, which must run in the parent app's lifespan.
+        streamable_app = mcp.streamable_http_app()
+
+        @contextlib.asynccontextmanager
+        async def lifespan(app):
+            async with mcp.session_manager.run():
+                yield
+
         app = Starlette(
+            lifespan=lifespan,
             routes=[
                 Route("/", landing_page),
                 Route("/openapi.yaml", openapi_schema),
@@ -516,6 +531,7 @@ maßgeblich sind die Informationen der jeweiligen Fördergeber.</p>
                 Route("/api/program/{id:path}", api_program),
                 Route("/api/deadlines", api_deadlines),
                 Route("/api/filters", api_filters),
+                *streamable_app.routes,
                 Mount("/", app=mcp.sse_app()),
             ],
             middleware=[
